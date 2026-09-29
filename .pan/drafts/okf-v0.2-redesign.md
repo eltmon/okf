@@ -14,6 +14,8 @@ Status: the operator accepted this plan on 2026-09-29 (§0). It is committed as 
 
 **`eltmon/overdeck-knowledge` PR #2 is merged** (2026-09-29T14:17:47Z, merge commit `f00f3484`). Its three backend concepts are treated as drafts during the v0.2 migration (PAN-C), and §5 step 1 is done.
 
+**Filed issues (2026-09-29):** PAN-A = eltmon/overdeck#4408; OKF-1..OKF-9 = eltmon/okf#1..#9 (the v0.2.0 tag is a checklist item in #9); PAN-B = eltmon/overdeck#4409; PAN-C = eltmon/overdeck#4410.
+
 ---
 
 ## 1. Verdict
@@ -154,7 +156,7 @@ The production lessons (§2.3) and OKF v0.2 provenance fields are the answer to 
 
 ### 2.3 Lessons from a private production knowledge loop
 
-A private production app (not public) runs Karpathy's pattern as a knowledge loop: sources are captured into a hashed raw ledger, claims are extracted with verbatim quotes, a daily compile rewrites each page from all of its backing claims, and the agent reads through two bounded tools. Its stated learnings, one line each, with what OKF should do:
+A private production implementation of Karpathy's pattern produced these learnings; one line each, with what OKF should do:
 
 | # | Learning | What OKF should do |
 | --- | --- | --- |

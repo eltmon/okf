@@ -2,9 +2,15 @@
   "version": "1",
   "issueId": "OKF-11",
   "created": "2026-11-15T19:58:40.672Z",
-  "updated": "2026-11-15T20:17:16.162Z",
+  "updated": "2026-11-15T20:23:13.180Z",
   "gitState": {},
-  "decisions": [],
+  "decisions": [
+    {
+      "id": "D-test-waived",
+      "summary": "Test gate waived: Python project: tests are pytest files under tests/, which this gate's *.test.ts pattern cannot see. 533c86e adds tests/test_publish_cli.py::test_publish_fixture_pages and test_no_unresolved_links (page per public concept, none for private, no unresolved link); 649906f and 46c6da9 add model and --check tests. 75 pytest tests pass and run in CI after the selftest.",
+      "recordedAt": "2026-11-15T20:23:13.180Z"
+    }
+  ],
   "hazards": [],
   "resumePoint": null,
   "sessionHistory": [],

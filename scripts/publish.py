@@ -12,7 +12,7 @@ import sys
 from okf_common import markdown_links
 from publish_model import Finding, PublishConcept, PublishModel, Source, build_model
 from publish_redact import PROFILE_FILENAME, Profile, load_profile, redact, scan
-from publish_render import filter_index_markdown, render_site, site_title
+from publish_render import filter_index_markdown, kept_index_lines, render_site, site_title
 from publish_search import write_search
 
 MARKER = ".okf-publish"
@@ -120,6 +120,56 @@ def redacted_copies(
     return replace(model, concepts=concepts), texts, sum(counts)
 
 
+def _field_findings(location: str, field: str, text: str, profile: Profile) -> list[Finding]:
+    return [
+        Finding("P_REDACTION", location, f"rule {rule_id} matches published text (field {field})")
+        for rule_id in _rule_ids(text, profile)
+    ]
+
+
+def check_findings(model: PublishModel, profile: Profile) -> list[Finding]:
+    """Scan the published text of public concepts and published index pages (``--check``)."""
+    findings: set[Finding] = set()
+    for concept_id in model.public_ids():
+        concept = model.concepts[concept_id]
+        fields = [
+            ("title", concept.title),
+            ("description", concept.description),
+            ("type", concept.type),
+            ("status", concept.status),
+        ]
+        fields.extend(("tags", tag) for tag in concept.tags)
+        for source in concept.sources:
+            fields.extend(
+                [("sources.title", source.title), ("sources.resource", source.resource), ("sources.author", source.author)]
+            )
+        for field, text in fields:
+            findings.update(_field_findings(concept.path, field, text, profile))
+        for rule_id, line in scan(concept.body, profile):
+            findings.add(
+                Finding(
+                    "P_REDACTION",
+                    f"{concept.path}:{concept.body_start_line + line - 1}",
+                    f"rule {rule_id} matches published text (field body)",
+                )
+            )
+
+    public_dirs = model.public_dirs()
+    for directory, text in sorted(model.index_files.items()):
+        if directory not in public_dirs:
+            continue
+        kept = kept_index_lines(text, directory, model)
+        filtered = "\n".join(line for _number, line in kept)
+        index_path = f"{directory}/index.md" if directory else "index.md"
+        offset = model.index_offsets.get(directory, 0)
+        for rule_id, line in scan(filtered, profile):
+            file_line = kept[line - 1][0] + offset
+            findings.add(
+                Finding("P_REDACTION", f"{index_path}:{file_line}", f"rule {rule_id} matches published text (field index)")
+            )
+    return list(findings)
+
+
 def _print_findings(findings: list[Finding]) -> None:
     for finding in sorted(findings, key=_location_key):
         print(finding.line())
@@ -154,7 +204,12 @@ def main(argv: list[str] | None = None) -> int:
     filtered = {d: filter_index_markdown(t, d, model) for d, t in model.index_files.items() if d in public_dirs}
 
     if args.check:
-        parser.error("--check is not implemented yet")
+        findings.extend(check_findings(model, profile))
+        if findings:
+            _print_findings(findings)
+            return 2
+        print(f"ok - publish check passed: {len(model.public_ids())} public concept(s), no redaction rule matches")
+        return 0
 
     assert out is not None
     findings.extend(out_findings(out, bundle, args.out))

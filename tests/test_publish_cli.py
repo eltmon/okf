@@ -214,3 +214,77 @@ def test_zero_public_note(scripts_dir, bundle_copy, tmp_path):
     assert "note - no public concepts" in result.stdout
     assert "no schema.md at bundle root" in result.stdout
     assert (out / "index.html").is_file()
+
+
+def file_line(path: Path, text: str) -> int:
+    return path.read_text(encoding="utf-8").split("\n").index(text) + 1
+
+
+def test_check_passes_on_fixture(scripts_dir, bundle_copy):
+    before = files_under(bundle_copy)
+    result = run_publish(scripts_dir, "--bundle", str(bundle_copy), "--check")
+    assert result.returncode == 0, result.stdout
+    assert result.stdout.startswith("ok - publish check passed: 3 public concept(s)")
+    assert files_under(bundle_copy) == before
+
+
+def test_check_fails_on_home_path_then_passes(scripts_dir, bundle_copy):
+    concept = bundle_copy / "rules" / "no-spoilers.md"
+    edit(concept, "Proposed in chat.[^s1]\n", "Proposed in chat.[^s1]\n\nSetup notes: /home/alice/obs.json\n")
+    line = file_line(concept, "Setup notes: /home/alice/obs.json")
+    failed = run_publish(scripts_dir, "--bundle", str(bundle_copy), "--check")
+    assert failed.returncode == 2
+    assert (
+        f"ERROR P_REDACTION rules/no-spoilers.md:{line}: rule home-path-unix matches published text (field body)"
+        in failed.stdout
+    )
+    assert "/home/alice" not in failed.stdout + failed.stderr
+
+    edit(concept, "Setup notes: /home/alice/obs.json", "Setup notes: ~/obs.json")
+    passed = run_publish(scripts_dir, "--bundle", str(bundle_copy), "--check")
+    assert passed.returncode == 0, passed.stdout
+
+
+def test_check_ignores_private(scripts_dir, bundle_copy):
+    private = (bundle_copy / "ops" / "incident-42.md").read_text(encoding="utf-8")
+    assert "/home/alice" in private and "10.0.0.12" in private and "Alice Example" in private
+    result = run_publish(scripts_dir, "--bundle", str(bundle_copy), "--check")
+    assert result.returncode == 0, result.stdout
+
+
+def test_check_frontmatter_field(scripts_dir, bundle_copy):
+    edit(bundle_copy / "rules" / "old-spoiler-rule.md", "description: Replaced rule.", "description: Runs on 10.0.0.12")
+    result = run_publish(scripts_dir, "--bundle", str(bundle_copy), "--check")
+    assert result.returncode == 2
+    assert (
+        "ERROR P_REDACTION rules/old-spoiler-rule.md: rule ipv4 matches published text (field description)"
+        in result.stdout
+    )
+    assert "10.0.0.12" not in result.stdout
+
+
+def test_check_index_text(scripts_dir, bundle_copy):
+    index = bundle_copy / "index.md"
+    edit(index, "(/ops/incident-42.md).\n", "(/ops/incident-42.md).\n\nHosted on stream-box.lan\n")
+    line = file_line(index, "Hosted on stream-box.lan")
+    result = run_publish(scripts_dir, "--bundle", str(bundle_copy), "--check")
+    assert result.returncode == 2
+    assert f"ERROR P_REDACTION index.md:{line}: rule stream-box-host matches published text (field index)" in result.stdout
+    assert "stream-box.lan" not in result.stdout
+
+
+def test_check_index_line_after_frontmatter_and_dropped_lines(scripts_dir, bundle_copy):
+    index = bundle_copy / "index.md"
+    text = index.read_text(encoding="utf-8")
+    index.write_text('---\nokf_version: "0.1"\n---\n' + text + "\nHosted on stream-box.lan\n", encoding="utf-8")
+    line = file_line(index, "Hosted on stream-box.lan")
+    result = run_publish(scripts_dir, "--bundle", str(bundle_copy), "--check")
+    assert result.returncode == 2
+    assert f"ERROR P_REDACTION index.md:{line}: rule stream-box-host" in result.stdout
+
+
+def test_check_and_out_exclusive(scripts_dir, bundle_copy, tmp_path):
+    result = run_publish(scripts_dir, "--bundle", str(bundle_copy), "--check", "--out", str(tmp_path / "site"))
+    assert result.returncode == 2
+    assert "not allowed with argument" in result.stderr
+    assert not (tmp_path / "site").exists()

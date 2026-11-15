@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 
 from publish_model import PublishModel
-from publish_render import concept_page_path, copy_asset, page_shell, write_file
+from publish_render import concept_page_path, copy_asset, page_shell, relative_href, write_file
 
 FENCE_LINE = re.compile(r"^ {0,3}(?:`{3,}|~{3,}).*$", re.MULTILINE)
 IMAGE = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
@@ -37,7 +37,7 @@ def search_records(model: PublishModel) -> list[dict[str, str]]:
                 "title": concept.title,
                 "description": concept.description,
                 "type": concept.type,
-                "url": concept_page_path(concept_id),
+                "url": relative_href("search.html", concept_page_path(concept_id)),
                 "text": search_text(concept.body),
             }
         )

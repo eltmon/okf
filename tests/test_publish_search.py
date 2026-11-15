@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import shutil
 
 from publish_model import build_model
 from publish_search import search_records, search_text, write_search
@@ -51,3 +52,15 @@ def test_json_is_deterministic(fixture_bundle, tmp_path):
     first = (tmp_path / "a" / "search-index.json").read_bytes()
     assert first == (tmp_path / "b" / "search-index.json").read_bytes()
     assert json.loads(first)[0]["id"] == "rules/no-spoilers"
+
+
+def test_record_urls_are_quoted(fixture_bundle, tmp_path):
+    bundle = tmp_path / "bundle"
+    shutil.copytree(fixture_bundle, bundle)
+    (bundle / "rules" / "c#.md").write_text("---\ntitle: Sharp\n---\n\nBody.\n", encoding="utf-8")
+    (bundle / "javascript:x.md").write_text("---\ntitle: Colon\n---\n\nBody.\n", encoding="utf-8")
+    model, findings = build_model(bundle)
+    assert findings == []
+    urls = {record["id"]: record["url"] for record in search_records(model)}
+    assert urls["rules/c#"] == "rules/c%23.html"
+    assert urls["javascript:x"] == "javascript%3Ax.html"

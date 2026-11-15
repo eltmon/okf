@@ -4,17 +4,17 @@
     "created": "2026-11-15T15:18:38Z",
     "author": "overdeck/0.0.0",
     "description": "Plan for OKF-11: Publish a bundle as a public static site with visibility and redaction",
-    "updated": "2026-11-15T15:21:32.570Z"
+    "updated": "2026-11-15T19:58:24.336Z"
   },
   "plan": {
     "id": "okf-11",
     "title": "Publish a bundle as a public static site with visibility and redaction",
-    "status": "proposed",
+    "status": "running",
     "uid": "75efd233-1f50-476c-8753-fb62ee408e33",
     "author": "agent:claude-opus-5-5",
-    "sequence": 2,
+    "sequence": 4,
     "created": "2026-11-15T15:18:38Z",
-    "updated": "2026-11-15T15:21:32.570Z",
+    "updated": "2026-11-15T19:58:24.336Z",
     "references": [
       {
         "uri": "https://github.com/eltmon/okf/issues/11",
@@ -889,5 +889,5 @@
       "promotionIntent": "automatic"
     }
   },
-  "status": "proposed"
+  "status": "active"
 }

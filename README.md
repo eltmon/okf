@@ -83,6 +83,7 @@ The skill remains portable. Its core scripts do not import Overdeck and require 
 | `/okf validate [--strict]` | Run the deterministic conformance gate. |
 | `/okf lint` | Run advisory semantic patrol. |
 | `/okf embed [--profile <name>]` | Update embedding shards and rebuild the local index. |
+| `/okf publish --out <dir> [--check]` | Build a public static site from public concepts, with redaction. |
 
 ## The Three Loops
 

@@ -2,7 +2,7 @@
   "version": "1",
   "issueId": "OKF-11",
   "created": "2026-11-15T19:58:40.672Z",
-  "updated": "2026-11-15T20:05:38.262Z",
+  "updated": "2026-11-15T20:07:41.193Z",
   "gitState": {},
   "decisions": [],
   "hazards": [],
@@ -80,9 +80,30 @@
       "doneAt": "2026-11-15T20:05:37.485Z"
     },
     "publish-model": {
-      "status": "in_progress",
+      "status": "completed",
       "claimedBy": "agent-okf-11",
-      "claimedAt": "2026-11-15T20:05:38.261Z"
+      "claimedAt": "2026-11-15T20:05:38.261Z",
+      "doneAt": "2026-11-15T20:07:41.193Z"
+    },
+    "publish-model.ac1": {
+      "status": "completed",
+      "doneAt": "2026-11-15T20:07:41.193Z"
+    },
+    "publish-model.ac2": {
+      "status": "completed",
+      "doneAt": "2026-11-15T20:07:41.193Z"
+    },
+    "publish-model.ac3": {
+      "status": "completed",
+      "doneAt": "2026-11-15T20:07:41.193Z"
+    },
+    "publish-model.ac4": {
+      "status": "completed",
+      "doneAt": "2026-11-15T20:07:41.193Z"
+    },
+    "publish-model.ac5": {
+      "status": "completed",
+      "doneAt": "2026-11-15T20:07:41.193Z"
     }
   }
 }

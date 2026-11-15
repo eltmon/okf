@@ -2,7 +2,7 @@
   "version": "1",
   "issueId": "OKF-11",
   "created": "2026-11-15T19:58:40.672Z",
-  "updated": "2026-11-15T20:09:58.226Z",
+  "updated": "2026-11-15T20:09:58.980Z",
   "gitState": {},
   "decisions": [],
   "hazards": [],
@@ -130,6 +130,11 @@
     "site-pages.ac5": {
       "status": "completed",
       "doneAt": "2026-11-15T20:09:58.225Z"
+    },
+    "search-index": {
+      "status": "in_progress",
+      "claimedBy": "agent-okf-11",
+      "claimedAt": "2026-11-15T20:09:58.980Z"
     }
   }
 }

@@ -1,0 +1,893 @@
+{
+  "xBRIEFInfo": {
+    "version": "0.8",
+    "created": "2026-11-15T15:18:38Z",
+    "author": "overdeck/0.0.0",
+    "description": "Plan for OKF-11: Publish a bundle as a public static site with visibility and redaction",
+    "updated": "2026-11-15T15:21:32.570Z"
+  },
+  "plan": {
+    "id": "okf-11",
+    "title": "Publish a bundle as a public static site with visibility and redaction",
+    "status": "proposed",
+    "uid": "75efd233-1f50-476c-8753-fb62ee408e33",
+    "author": "agent:claude-opus-5-5",
+    "sequence": 2,
+    "created": "2026-11-15T15:18:38Z",
+    "updated": "2026-11-15T15:21:32.570Z",
+    "references": [
+      {
+        "uri": "https://github.com/eltmon/okf/issues/11",
+        "label": "OKF-11",
+        "type": "issue"
+      },
+      {
+        "uri": ".pan/drafts/OKF-11.md",
+        "label": "OKF-11 PRD",
+        "type": "prd"
+      }
+    ],
+    "tags": [
+      "okf",
+      "publish",
+      "static-site",
+      "redaction",
+      "visibility",
+      "security"
+    ],
+    "narratives": {
+      "Problem": "A bundle can only be viewed locally. Some projects want a public read-only site (for example a live-stream project whose viewers propose AI rules), but raw bundles hold operator-only notes, machine paths, incident detail and private names, so publishing them unchanged is unsafe.",
+      "Proposal": "Add scripts/publish.py (stdlib + PyYAML) that builds a multi-page static site from public concepts only: per-concept pages with sources, trust tier and backlinks, filtered index pages, and client-side search from a prebuilt JSON index. Visibility comes from x_visibility with a fail-closed bundle default x_visibility_default in schema.md. A redaction profile (okf-publish.yaml plus built-in rules) rewrites all published text, and --check is a deterministic gate that exits 2 when a rule would fire in public text. Full design and exact interfaces are in .pan/drafts/OKF-11.md.",
+      "NonGoals": "- Deploying the site or adding host config files beyond the README sample workflow.\n- Publishing log.md, non-Markdown assets (images, PDFs), embeddings or the .okf-index/ cache.\n- Rendering generated/verified actor identities; only the derived trust tier is shown.\n- A per-match allow list for redaction rules; bundles disable a whole built-in rule by id instead.\n- Redacting or rewriting concept IDs or directory names; a rule match on one is a hard P_ID_REDACTION error.\n- Excluding drafts or deprecated concepts automatically; visibility alone decides inclusion.\n- Full CommonMark (HTML blocks, setext headings, reference-style links, indented code, hard breaks).\n- Editing okf_common.py, validate.py, reindex.py, diff_lint.py, embed.py, build_index.py, search.py or templates/repo/.okf/scripts/*.\n- Adding an okf.py CLI or vendoring the publish scripts into templates/repo/.okf/scripts/ (OKF-1/OKF-4 own these).\n- Adding x_visibility checks to validate.py.\n- Third-party scripts, CDN assets, inline scripts or innerHTML on the published site.\n- Search stemming, fuzzy matching or ranking beyond term matching.\n- Site theming or configuration options.\n- Any treatment that makes a concept public without an explicit public value (no fail-open default)."
+    },
+    "autoDecisions": [
+      {
+        "summary": "Build now on the v0.1 scripts as new scripts/publish*.py files instead of waiting for OKF-1/OKF-4/OKF-6.",
+        "rationale": "The issue's 'fits after #6' is sequencing advice, not a requirement; isolated new files touch no existing script, so OKF-1's restructure can move them cheaply. v0.2 keys (verified, status, sources) are read tolerantly from frontmatter."
+      },
+      {
+        "summary": "Bundle default key is x_visibility_default in root schema.md frontmatter.",
+        "rationale": "The issue names schema.md but no key; schema.md is itself a concept, so reusing x_visibility would be ambiguous. The x_ prefix matches x_embed."
+      },
+      {
+        "summary": "Visibility fails closed: missing schema.md or key means private; invalid values are errors.",
+        "rationale": "Publishing must be opt-in on a public site; the CLI prints why zero concepts were published."
+      },
+      {
+        "summary": "Markdown is rendered by a stdlib, fully escaping renderer; no CDN library.",
+        "rationale": "Stdlib + PyYAML constraint, deterministic output, and a testable XSS boundary for viewer-proposed text."
+      },
+      {
+        "summary": "Built-in redaction rules apply with no profile; a bundle disables one by id.",
+        "rationale": "Fail toward redaction; per-rule disable handles ipv4 false positives without an allow list."
+      },
+      {
+        "summary": "--check scans source text; 'passes after redaction' means after the author removes the matching text.",
+        "rationale": "Matches the issue's acceptance wording and keeps the gate deterministic; plain publish redacts and succeeds."
+      },
+      {
+        "summary": "Add pytest under tests/ and run it in CI alongside selftest.sh.",
+        "rationale": "The issue requires pytest and the v0.2 plan moves the repo to pytest; selftest.sh stays."
+      },
+      {
+        "summary": "Search loads search-index.json with fetch.",
+        "rationale": "The issue asks for a prebuilt JSON index; file:// previews are documented as unsupported and UAT serves over http.server."
+      },
+      {
+        "summary": "--out is rebuilt from scratch only when it carries the .okf-publish marker; otherwise a non-empty dir is refused.",
+        "rationale": "Stale pages from concepts turned private would leak; refusing unmarked directories prevents deleting user data."
+      }
+    ],
+    "items": [
+      {
+        "id": "pytest-harness",
+        "title": "Add a pytest harness that CI runs after the selftest",
+        "status": "pending",
+        "priority": "high",
+        "created": "2026-11-15T15:18:38Z",
+        "metadata": {
+          "difficulty": "simple",
+          "kind": "infra",
+          "issueLabel": "okf-11",
+          "requiresInspection": false,
+          "inspectionDepth": "fast",
+          "files_scope": [
+            "tests/conftest.py",
+            "tests/test_harness.py",
+            ".github/workflows/ci.yml"
+          ],
+          "files_scope_confidence": "high",
+          "verify_commands": [
+            "uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_harness.py"
+          ],
+          "expected_outputs": [
+            "pytest reports 1 passed and exits 0"
+          ],
+          "readiness": "ready",
+          "traces": [
+            "FR-14",
+            "NFR-3"
+          ]
+        },
+        "narrative": {
+          "Action": "Follow .pan/drafts/OKF-11.md WI-1. Create tests/conftest.py (prepend the repo scripts/ dir to sys.path; fixtures scripts_dir and fixture_bundle -> tests/fixtures/publish_bundle), tests/test_harness.py (test_okf_common_importable), and change .github/workflows/ci.yml to install 'pyyaml pytest' and add a final step 'python -m pytest -q tests'. Do not touch any other file."
+        },
+        "items": [
+          {
+            "id": "pytest-harness.ac1",
+            "title": "Given the repo, when `uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_harness.py` runs, then it exits 0 and reports 1 passed.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "pytest-harness.ac2",
+            "title": "Given .github/workflows/ci.yml, when read, then it installs `pyyaml pytest` and runs `python -m pytest -q tests` as a step after `bash scripts/selftest.sh`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "pytest-harness.ac3",
+            "title": "Given tests/conftest.py, when a test imports `okf_common`, then the import resolves from the repo's scripts/ directory without any installed package.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          }
+        ]
+      },
+      {
+        "id": "markdown-renderer",
+        "title": "Add the escaped stdlib Markdown renderer for published pages",
+        "status": "pending",
+        "priority": "medium",
+        "created": "2026-11-15T15:18:38Z",
+        "metadata": {
+          "difficulty": "medium",
+          "kind": "backend",
+          "issueLabel": "okf-11",
+          "requiresInspection": true,
+          "inspectionDepth": "fast",
+          "files_scope": [
+            "scripts/publish_markdown.py",
+            "tests/test_publish_markdown.py"
+          ],
+          "files_scope_confidence": "high",
+          "verify_commands": [
+            "uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_publish_markdown.py"
+          ],
+          "expected_outputs": [
+            "tests/test_publish_markdown.py: 6 passed, exit 0"
+          ],
+          "readiness": "ready",
+          "traces": [
+            "FR-4",
+            "NFR-1",
+            "NFR-4"
+          ],
+          "foundationFor": [
+            "site-pages"
+          ]
+        },
+        "narrative": {
+          "Action": "Follow .pan/drafts/OKF-11.md section 4.6 (render_markdown signature and the supported-construct table) and WI-2. Stdlib only. Every text run and attribute is html.escape'd; raw HTML renders as escaped text; images render alt text only; the renderer re-checks every href and renders any scheme other than http/https/mailto as plain text; resolver None renders link text only. Implement footnotes as specified. Write the six named tests in tests/test_publish_markdown.py."
+        },
+        "items": [
+          {
+            "id": "markdown-renderer.ac1",
+            "title": "Given a body containing `<script>alert(1)</script>` and `<img src=x onerror=alert(1)>`, when render_markdown runs, then the output contains `&lt;script&gt;` and contains no `<script` and no `<img` substring.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "markdown-renderer.ac2",
+            "title": "Given a resolver that returns `javascript:alert(1)` or `data:text/html,x`, when a link renders, then the output contains the link text and no `<a` tag; a resolver returning `https://example.com` produces `<a href=\"https://example.com\">`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "markdown-renderer.ac3",
+            "title": "Given `Claim.[^s1]` and `[^s1]: Source text`, when rendered, then the output contains `href=\"#fn-s1\"` in a `fnref` superscript and a `<section class=\"footnotes\">` with `id=\"fn-s1\"`; an undefined `[^zz]` stays as literal escaped text.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "markdown-renderer.ac4",
+            "title": "Given headings, nested lists, a blockquote, a fenced python block and a pipe table, when rendered, then the output contains slugged `<h2 id=...>` ids (duplicate gets `-2`), nested `<ul>`, `<blockquote>`, `<code class=\"language-python\">` and `<thead>`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "markdown-renderer.ac5",
+            "title": "Given the repo, when `uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_publish_markdown.py` runs, then all six named tests pass.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          }
+        ]
+      },
+      {
+        "id": "redaction-rules",
+        "title": "Add the redaction profile loader, built-in rules, redact and scan",
+        "status": "pending",
+        "priority": "medium",
+        "created": "2026-11-15T15:18:38Z",
+        "metadata": {
+          "difficulty": "medium",
+          "kind": "backend",
+          "issueLabel": "okf-11",
+          "requiresInspection": true,
+          "inspectionDepth": "deep",
+          "files_scope": [
+            "scripts/publish_redact.py",
+            "templates/okf-publish.yaml",
+            "tests/test_publish_redact.py"
+          ],
+          "files_scope_confidence": "high",
+          "verify_commands": [
+            "uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_publish_redact.py"
+          ],
+          "expected_outputs": [
+            "tests/test_publish_redact.py: 7 passed, exit 0"
+          ],
+          "readiness": "ready",
+          "traces": [
+            "FR-8",
+            "FR-9",
+            "NFR-5"
+          ],
+          "foundationFor": [
+            "publish-command",
+            "publish-check-mode"
+          ]
+        },
+        "narrative": {
+          "Action": "Follow .pan/drafts/OKF-11.md section 4.5 exactly: the profile schema, the eight DEFAULT_RULES with their exact patterns and order, private_strings as case-insensitive escaped rules named private-string-<n>, load_profile error cases, literal replacement, and scan returning (rule_id, line) pairs without matched text. Write templates/okf-publish.yaml with a comment listing every built-in id. Write the seven named tests from WI-3."
+        },
+        "items": [
+          {
+            "id": "redaction-rules.ac1",
+            "title": "Given no profile file in the bundle, when load_profile runs, then it returns the built-in profile and redact turns `/home/alice/x` into `~/x`, `10.0.0.12` into `[ip]` and a `ghp_` + 36-character token into `[token]`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "redaction-rules.ac2",
+            "title": "Given a profile with `disable_default_rules: [ipv4]`, when redact runs on `127.0.0.1`, then the text is unchanged; given `private_strings: [Alice Example]`, `alice example` is replaced with `[redacted]` and counted under `private-string-1`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "redaction-rules.ac3",
+            "title": "Given an invalid profile (unknown top-level key, wrong okf_publish_version, duplicate id, bad regex, unknown disabled id), when load_profile runs, then it returns `(None, errors)` and each error names the offending field or rule id.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "redaction-rules.ac4",
+            "title": "Given `a\\n/home/alice\\n`, when scan runs, then it returns `[(\"home-path-unix\", 2)]` and no element contains the matched text.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "redaction-rules.ac5",
+            "title": "Given the repo, when `uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_publish_redact.py` runs, then all seven named tests pass, including the check that templates/okf-publish.yaml lists exactly the DEFAULT_RULES ids.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          }
+        ]
+      },
+      {
+        "id": "publish-model",
+        "title": "Add the publish model: bundle walk, visibility, trust tier, link classes and the fixture bundle",
+        "status": "pending",
+        "priority": "high",
+        "created": "2026-11-15T15:18:38Z",
+        "metadata": {
+          "difficulty": "complex",
+          "kind": "backend",
+          "issueLabel": "okf-11",
+          "requiresInspection": true,
+          "inspectionDepth": "deep",
+          "files_scope": [
+            "scripts/publish_model.py",
+            "tests/test_publish_model.py",
+            "tests/fixtures/publish_bundle/*.md",
+            "tests/fixtures/publish_bundle/okf-publish.yaml",
+            "tests/fixtures/publish_bundle/rules/*.md",
+            "tests/fixtures/publish_bundle/ops/*.md",
+            "tests/fixtures/publish_bundle/.github/notes.md"
+          ],
+          "files_scope_confidence": "medium",
+          "verify_commands": [
+            "uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_publish_model.py"
+          ],
+          "expected_outputs": [
+            "tests/test_publish_model.py: 10 passed, exit 0"
+          ],
+          "readiness": "ready",
+          "traces": [
+            "FR-2",
+            "FR-3",
+            "FR-6",
+            "FR-12",
+            "NFR-1",
+            "NFR-3"
+          ],
+          "foundationFor": [
+            "site-pages",
+            "search-index",
+            "publish-command",
+            "publish-check-mode"
+          ],
+          "readinessReason": "Creates only new files (publish_model.py, its test, the fixture bundle); no other item writes them, so it can run in its own slot once pytest-harness lands."
+        },
+        "narrative": {
+          "Action": "Follow .pan/drafts/OKF-11.md sections 4.2-4.4 and WI-4. Implement walk_markdown (skip dot components, node_modules, and the exclude dir), visibility resolution that fails closed (missing schema.md or key -> private, invalid value -> P_VISIBILITY_INVALID and private), trust_tier, Source/PublishConcept/Finding/PublishModel types with the listed fields, classify_link rules 1-10 in order, backlinks among public concepts only, public_dirs, body_start_line, and P_FRONTMATTER_PARSE findings. Create the fixture bundle exactly as the WI-4 table lists, including the ZZ-PRIVATE marker strings, okf-publish.yaml and .github/notes.md without frontmatter. Public fixture text must match no redaction rule. Write the ten named tests."
+        },
+        "items": [
+          {
+            "id": "publish-model.ac1",
+            "title": "Given the fixture bundle, when build_model runs, then public_ids() returns exactly `[\"rules/no-spoilers\", \"rules/old-spoiler-rule\", \"schema\"]`, findings are empty, and `.github/notes.md` produces no finding.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publish-model.ac2",
+            "title": "Given a copy without schema.md, when build_model runs, then public_ids() is empty and default_reason is `no schema.md at bundle root`; given `x_visibility: Public` on a concept, then one P_VISIBILITY_INVALID finding is returned and the concept is private.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publish-model.ac3",
+            "title": "Given classify_link inputs from section 4.3, when classified from source dir `rules`, then `../../x.md` and `javascript:x` return kind `other`, `index.md` and `/rules/` return kind `directory` with value `rules`, and `/ops/incident-42.md#a` returns kind `concept` with fragment `a`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publish-model.ac4",
+            "title": "Given the fixture, when backlinks(\"rules/no-spoilers\") runs, then it returns `[\"rules/old-spoiler-rule\"]`, and a private concept linking to it is not included; public_dirs() returns `{\"\", \"rules\"}`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publish-model.ac5",
+            "title": "Given the repo, when `uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_publish_model.py` runs, then all ten named tests pass.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          }
+        ]
+      },
+      {
+        "id": "site-pages",
+        "title": "Render concept pages and index pages with page-relative links",
+        "status": "pending",
+        "priority": "medium",
+        "created": "2026-11-15T15:18:38Z",
+        "metadata": {
+          "difficulty": "complex",
+          "kind": "backend",
+          "issueLabel": "okf-11",
+          "requiresInspection": false,
+          "inspectionDepth": "fast",
+          "files_scope": [
+            "scripts/publish_render.py",
+            "scripts/publish_assets/style.css",
+            "tests/test_publish_render.py"
+          ],
+          "files_scope_confidence": "high",
+          "verify_commands": [
+            "uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_publish_render.py"
+          ],
+          "expected_outputs": [
+            "tests/test_publish_render.py: 5 passed, exit 0"
+          ],
+          "readiness": "ready",
+          "traces": [
+            "FR-1",
+            "FR-3",
+            "FR-4",
+            "FR-5",
+            "NFR-2",
+            "NFR-4"
+          ],
+          "readinessReason": "Creates only new files (publish_render.py, style.css, its test); it reads publish_markdown.py and publish_model.py, which its blockers produce."
+        },
+        "narrative": {
+          "Action": "Follow .pan/drafts/OKF-11.md section 4.6 (publish_render.py part) and WI-5: concept_page_path, dir_index_path, relative_href with quoted segments, make_resolver applying FR-4, filter_index_markdown dropping listing lines whose first link is an unpublished concept or directory, site_title, page_shell with the exact HTML structure, concept page body with badges, sources and backlinks, generated listings for published directories without index.md, and copying style.css (no external fonts, no @import, a prefers-color-scheme dark block). Write the five named tests."
+        },
+        "items": [
+          {
+            "id": "site-pages.ac1",
+            "title": "Given the fixture model, when render_site writes to tmp_path, then it returns exactly `[\"assets/style.css\", \"index.html\", \"rules/index.html\", \"rules/no-spoilers.html\", \"rules/old-spoiler-rule.html\", \"schema.html\"]`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "site-pages.ac2",
+            "title": "Given rules/no-spoilers.html, when read, then it contains `human-reviewed`, `stable`, `Chat proposal — viewer-anna`, a Linked from entry `href=\"old-spoiler-rule.html\"`, and header `href=\"../index.html\"`, while `incident` and `future rule` appear with no surrounding `<a` tag.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "site-pages.ac3",
+            "title": "Given the fixture index texts, when filter_index_markdown runs, then the root text has no `ops/` listing line and the rules text has no `ZZ-PRIVATE-MOD-NOTES` line, while the hand-written prose line remains.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "site-pages.ac4",
+            "title": "Given a copy without rules/index.md, when render_site runs, then rules/index.html is still written and lists both public rules and not `ZZ-PRIVATE-MOD-NOTES`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "site-pages.ac5",
+            "title": "Given the repo, when `uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_publish_render.py` runs, then all five named tests pass.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          }
+        ]
+      },
+      {
+        "id": "search-index",
+        "title": "Add the client-side search index, search page and script",
+        "status": "pending",
+        "priority": "medium",
+        "created": "2026-11-15T15:18:38Z",
+        "metadata": {
+          "difficulty": "medium",
+          "kind": "frontend",
+          "issueLabel": "okf-11",
+          "requiresInspection": false,
+          "inspectionDepth": "fast",
+          "files_scope": [
+            "scripts/publish_search.py",
+            "scripts/publish_assets/search.js",
+            "tests/test_publish_search.py"
+          ],
+          "files_scope_confidence": "high",
+          "verify_commands": [
+            "uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_publish_search.py"
+          ],
+          "expected_outputs": [
+            "tests/test_publish_search.py: 4 passed, exit 0"
+          ],
+          "readiness": "ready",
+          "traces": [
+            "FR-7",
+            "NFR-2",
+            "NFR-4"
+          ]
+        },
+        "narrative": {
+          "Action": "Follow .pan/drafts/OKF-11.md section 4.7 and WI-6: search_text strips link targets and footnote markers, search_records holds one sorted record per public concept, write_search writes search-index.json with sort_keys and compact separators, search.html via page_shell with exactly one script tag, and copies search.js. search.js uses fetch(\"search-index.json\"), all-terms matching with 3/2/1 scoring, at most 50 results built with createElement/textContent/setAttribute, and the three status messages; no innerHTML, eval or external URLs. Write the four named tests."
+        },
+        "items": [
+          {
+            "id": "search-index.ac1",
+            "title": "Given the fixture model, when search_records runs, then the record ids equal public_ids(), no record contains `ZZ-PRIVATE`, and the rules/no-spoilers text contains `incident` but not `/ops/incident-42.md`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "search-index.ac2",
+            "title": "Given write_search output, when search.html is read, then it contains exactly one `<script` tag with `src=\"assets/search.js\"` and an element with id `okf-results`; two runs produce byte-identical search-index.json.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "search-index.ac3",
+            "title": "Given scripts/publish_assets/search.js, when read, then it contains `textContent` and `fetch(\"search-index.json\")` and does not contain `innerHTML`, `eval(`, `http://` or `https://`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "search-index.ac4",
+            "title": "Given the published fixture served with `python3 -m http.server` in an isolated Playwright browser, when search.html?q=spoilers loads, then the results list renders `No spoilers` and `Old spoiler rule` and the page shows no `ZZ-PRIVATE` text.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "search-index.ac5",
+            "title": "Given the repo, when `uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_publish_search.py` runs, then all four named tests pass.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          }
+        ]
+      },
+      {
+        "id": "publish-command",
+        "title": "Add publish.py --out with redaction, output-directory safety and clean rebuilds",
+        "status": "pending",
+        "priority": "high",
+        "created": "2026-11-15T15:18:38Z",
+        "metadata": {
+          "difficulty": "complex",
+          "kind": "backend",
+          "issueLabel": "okf-11",
+          "requiresInspection": false,
+          "inspectionDepth": "fast",
+          "files_scope": [
+            "scripts/publish.py",
+            "tests/test_publish_cli.py"
+          ],
+          "files_scope_confidence": "high",
+          "verify_commands": [
+            "uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_publish_cli.py"
+          ],
+          "expected_outputs": [
+            "tests/test_publish_cli.py: all --out tests pass, exit 0"
+          ],
+          "readiness": "ready",
+          "traces": [
+            "FR-1",
+            "FR-10",
+            "FR-11",
+            "FR-12",
+            "NFR-2"
+          ],
+          "readinessReason": "Creates scripts/publish.py and tests/test_publish_cli.py, which no item except publish-check-mode touches, and that item is serialized after it by an edge."
+        },
+        "narrative": {
+          "Action": "Follow .pan/drafts/OKF-11.md section 4.8 steps 1-5 and 9-12 and WI-7. argparse with a required mutually exclusive --out/--check group (implement --check as an argparse option only; its scan logic is the next item, so until then --check may exit 2 with 'not implemented' — the next item replaces it). Load the profile, build the model excluding --out, emit P_ID_REDACTION for rule matches on public IDs and published dir paths, refuse unsafe --out (bundle root or ancestor, non-directory, non-empty without .okf-publish), delete and rebuild a marked directory, redact every published string and the filtered index texts (filter before redact), render pages and search, print the summary line and the zero-public note. Any finding writes nothing. Write the nine named tests in tests/test_publish_cli.py."
+        },
+        "items": [
+          {
+            "id": "publish-command.ac1",
+            "title": "Given a tmp copy of the fixture, when `publish.py --bundle <copy> --out <dir>` runs, then it exits 0 and the set of `.html` files is exactly index.html, rules/index.html, rules/no-spoilers.html, rules/old-spoiler-rule.html, schema.html, search.html, with no ops/ pages and no log.html.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publish-command.ac2",
+            "title": "Given that output, when every href/src that is not http(s), mailto or `#` is resolved against its page's directory, then each target file exists under --out; and no output file contains `ZZ-PRIVATE`, `/home/alice`, `10.0.0.12` or `Alice Example`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publish-command.ac3",
+            "title": "Given --out equal to the bundle, or a non-empty directory without `.okf-publish`, when publish runs, then it exits 2 with `P_OUT_UNSAFE` and leaves existing files untouched; given a marked directory and a concept turned private, the rerun removes that concept's page.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publish-command.ac4",
+            "title": "Given a public concept at hosts/stream-box.lan.md or an invalid x_visibility value, when publish runs, then it exits 2 with `P_ID_REDACTION` or `P_VISIBILITY_INVALID` and does not create --out.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publish-command.ac5",
+            "title": "Given two publishes of the same bundle to two directories, when compared, then the file lists and bytes are identical; given `/home/bob/vod` and `stream-box.lan` added to a public body, the page contains `~/vod` and `[internal-host]`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          }
+        ]
+      },
+      {
+        "id": "publish-check-mode",
+        "title": "Add the publish.py --check redaction gate",
+        "status": "pending",
+        "priority": "high",
+        "created": "2026-11-15T15:18:38Z",
+        "metadata": {
+          "difficulty": "medium",
+          "kind": "backend",
+          "issueLabel": "okf-11",
+          "requiresInspection": false,
+          "inspectionDepth": "fast",
+          "files_scope": [
+            "scripts/publish.py",
+            "tests/test_publish_cli.py"
+          ],
+          "files_scope_confidence": "high",
+          "verify_commands": [
+            "uv run --no-project --python 3.12 --with pyyaml --with pytest python -m pytest -q tests/test_publish_cli.py"
+          ],
+          "expected_outputs": [
+            "tests/test_publish_cli.py: all tests pass, exit 0"
+          ],
+          "readiness": "ready",
+          "traces": [
+            "FR-9",
+            "NFR-5"
+          ]
+        },
+        "narrative": {
+          "Action": "Follow .pan/drafts/OKF-11.md section 4.8 steps 6-8 and WI-8. --check scans each public concept's title, description, type, status, tags, source title/resource/author and body, plus each filtered published index text, with publish_redact.scan. Body locations use file line numbers (body_start_line + line - 1); index locations use the index file's line numbers. Messages name the rule id and field and never the matched text. Exit 2 on any finding, else print `ok - publish check passed: <N> public concept(s), no redaction rule matches` and exit 0. Write nothing. Write the six named tests in tests/test_publish_cli.py."
+        },
+        "items": [
+          {
+            "id": "publish-check-mode.ac1",
+            "title": "Given the unmodified fixture copy, when `publish.py --bundle <copy> --check` runs, then it exits 0, prints `ok - publish check passed: 3 public concept(s)`, and the copy's file list is unchanged even though private concepts hold home paths, an IP and a private string.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publish-check-mode.ac2",
+            "title": "Given rules/no-spoilers.md with the body line `Setup notes: /home/alice/obs.json`, when --check runs, then it exits 2, prints `ERROR P_REDACTION rules/no-spoilers.md:<n>: rule home-path-unix matches published text (field body)` with `<n>` equal to that file line, and stdout does not contain `/home/alice`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publish-check-mode.ac3",
+            "title": "Given that line then replaced with `Setup notes: ~/obs.json`, when --check runs again, then it exits 0.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publish-check-mode.ac4",
+            "title": "Given `description: Runs on 10.0.0.12` on a public concept or `Hosted on stream-box.lan` in root index.md prose, when --check runs, then it exits 2 with `(field description)` or location `index.md:<line>` respectively; passing both --check and --out exits 2 with an argparse error.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          }
+        ]
+      },
+      {
+        "id": "skill-command-row",
+        "title": "Add the /okf publish command row, SKILL.md section and selftest loop entry",
+        "status": "pending",
+        "priority": "medium",
+        "created": "2026-11-15T15:18:38Z",
+        "metadata": {
+          "difficulty": "simple",
+          "kind": "docs",
+          "issueLabel": "okf-11",
+          "requiresInspection": false,
+          "inspectionDepth": "fast",
+          "files_scope": [
+            "SKILL.md",
+            "README.md",
+            "scripts/selftest.sh"
+          ],
+          "files_scope_confidence": "high",
+          "verify_commands": [
+            "uv run --no-project --python 3.12 --with pyyaml --with pytest bash scripts/selftest.sh"
+          ],
+          "expected_outputs": [
+            "selftest prints ok - SKILL.md documents /okf publish and exits 0"
+          ],
+          "readiness": "ready",
+          "traces": [
+            "FR-13",
+            "NFR-3"
+          ]
+        },
+        "narrative": {
+          "Action": "Follow .pan/drafts/OKF-11.md WI-9 in one commit: add the identical `/okf publish --out <dir> [--check]` row after the `/okf embed` row in the SKILL.md table (3 columns) and the README table (2 columns), append the SKILL.md `## \\`/okf publish --out <dir> [--check]\\`` section verbatim from WI-9, and add `publish` to the end of the command loop on scripts/selftest.sh line 27. Change nothing else in these files."
+        },
+        "items": [
+          {
+            "id": "skill-command-row.ac1",
+            "title": "Given the repo, when `uv run --no-project --python 3.12 --with pyyaml --with pytest bash scripts/selftest.sh` runs, then it exits 0 and prints `ok - SKILL.md documents /okf publish` and `ok - README command names match SKILL.md table`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "skill-command-row.ac2",
+            "title": "Given SKILL.md, when read, then the `/okf publish` section states that the default visibility is private, that --check names the rule and line but never the matched text, and that deploying is outside the skill.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          }
+        ]
+      },
+      {
+        "id": "publishing-docs",
+        "title": "Document publishing in README, references/publish.md and docs/USAGE.md",
+        "status": "pending",
+        "priority": "medium",
+        "created": "2026-11-15T15:18:38Z",
+        "metadata": {
+          "difficulty": "medium",
+          "kind": "docs",
+          "issueLabel": "okf-11",
+          "requiresInspection": false,
+          "inspectionDepth": "fast",
+          "files_scope": [
+            "README.md",
+            "references/publish.md",
+            "docs/USAGE.md"
+          ],
+          "files_scope_confidence": "high",
+          "verify_commands": [
+            "uv run --no-project --python 3.12 --with pyyaml --with pytest bash scripts/selftest.sh",
+            "grep -c '^## Publishing a bundle' README.md"
+          ],
+          "expected_outputs": [
+            "selftest exits 0",
+            "grep prints 1"
+          ],
+          "readiness": "ready",
+          "traces": [
+            "FR-13"
+          ]
+        },
+        "narrative": {
+          "Action": "Follow .pan/drafts/OKF-11.md WI-10: add `## Publishing a bundle` to README.md between `## The Three Loops` and `## Reading Rules` (visibility, redaction profile, the Cloudflare Pages workflow verbatim, one GitHub Pages sentence, one http.server preview sentence); create references/publish.md with every topic WI-10 lists, including all seven P_* codes and the ipv4 false-positive note; add the `/okf publish` section to docs/USAGE.md before `## Model Ladder`. Do not edit the README command table (the previous item owns it)."
+        },
+        "items": [
+          {
+            "id": "publishing-docs.ac1",
+            "title": "Given README.md, when `grep -n '^## Publishing a bundle' README.md` runs, then it matches one line, and that section contains `x_visibility`, `x_visibility_default`, `okf-publish.yaml`, `cloudflare/wrangler-action@v3` and `publish.py --bundle . --check`.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publishing-docs.ac2",
+            "title": "Given references/publish.md, when read, then it lists P_BUNDLE_MISSING, P_PROFILE_INVALID, P_FRONTMATTER_PARSE, P_VISIBILITY_INVALID, P_ID_REDACTION, P_REDACTION and P_OUT_UNSAFE with exit code 2, and states that log.md and non-Markdown files are never published.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publishing-docs.ac3",
+            "title": "Given docs/USAGE.md, when read, then a `/okf publish --out <dir> [--check]` section appears before `## Model Ladder` with a `--check` example and an `--out` example.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          },
+          {
+            "id": "publishing-docs.ac4",
+            "title": "Given the repo, when `uv run --no-project --python 3.12 --with pyyaml --with pytest bash scripts/selftest.sh` runs after this item, then it still exits 0.",
+            "status": "pending",
+            "metadata": {
+              "kind": "acceptance_criterion"
+            }
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "from": "pytest-harness",
+        "to": "markdown-renderer",
+        "type": "blocks"
+      },
+      {
+        "from": "pytest-harness",
+        "to": "redaction-rules",
+        "type": "blocks"
+      },
+      {
+        "from": "pytest-harness",
+        "to": "publish-model",
+        "type": "blocks"
+      },
+      {
+        "from": "markdown-renderer",
+        "to": "site-pages",
+        "type": "blocks"
+      },
+      {
+        "from": "publish-model",
+        "to": "site-pages",
+        "type": "blocks"
+      },
+      {
+        "from": "publish-model",
+        "to": "search-index",
+        "type": "blocks"
+      },
+      {
+        "from": "site-pages",
+        "to": "search-index",
+        "type": "blocks"
+      },
+      {
+        "from": "redaction-rules",
+        "to": "publish-command",
+        "type": "blocks"
+      },
+      {
+        "from": "site-pages",
+        "to": "publish-command",
+        "type": "blocks"
+      },
+      {
+        "from": "search-index",
+        "to": "publish-command",
+        "type": "blocks"
+      },
+      {
+        "from": "publish-command",
+        "to": "publish-check-mode",
+        "type": "blocks"
+      },
+      {
+        "from": "skill-command-row",
+        "to": "publishing-docs",
+        "type": "blocks"
+      },
+      {
+        "from": "publish-check-mode",
+        "to": "publishing-docs",
+        "type": "informs"
+      }
+    ],
+    "metadata": {
+      "sizeJustification": "One feature in a small flat repo. The subsystem count is inflated because the lint counts the first two path segments, so each new scripts/publish_*.py and tests/test_publish_*.py file counts as its own subsystem; the real surface is scripts/, tests/, templates/, .github/ and four doc files. The items are not independently user-shippable: the model, renderer, redaction and search modules have no entry point until publish.py lands, and the issue's acceptance needs all of them together. Items are already split per module with their own tests.",
+      "canonicalFilename": "2026-11-15-OKF-11-publish-a-bundle-as-a-public-static-site-with-visibility-and-redaction.xbrief.json",
+      "promotionIntent": "automatic"
+    }
+  },
+  "status": "proposed"
+}

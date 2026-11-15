@@ -1,0 +1,5 @@
+# Ops
+
+<!-- OKF:INDEX:BEGIN -->
+* [ZZ-PRIVATE-INCIDENT](incident-42.md) - ZZ-PRIVATE-INCIDENT-DESC
+<!-- OKF:INDEX:END -->

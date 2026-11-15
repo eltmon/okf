@@ -2,7 +2,7 @@
   "version": "1",
   "issueId": "OKF-11",
   "created": "2026-11-15T19:58:40.672Z",
-  "updated": "2026-11-15T20:15:27.122Z",
+  "updated": "2026-11-15T20:15:27.786Z",
   "gitState": {},
   "decisions": [],
   "hazards": [],
@@ -218,6 +218,11 @@
     "skill-command-row.ac2": {
       "status": "completed",
       "doneAt": "2026-11-15T20:15:27.121Z"
+    },
+    "publishing-docs": {
+      "status": "in_progress",
+      "claimedBy": "agent-okf-11",
+      "claimedAt": "2026-11-15T20:15:27.786Z"
     }
   }
 }

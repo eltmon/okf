@@ -1,0 +1,7 @@
+okf_publish_version: "0.1"
+rules:
+  - id: stream-box-host
+    pattern: '\bstream-box\.lan\b'
+    replace: '[internal-host]'
+private_strings:
+  - Alice Example

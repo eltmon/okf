@@ -192,7 +192,7 @@ def generated_listing(directory: str, model: PublishModel, title: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _write(out_dir: Path, relative: str, content: str) -> None:
+def write_file(out_dir: Path, relative: str, content: str) -> None:
     target = out_dir / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", encoding="utf-8", newline="\n") as handle:
@@ -201,7 +201,7 @@ def _write(out_dir: Path, relative: str, content: str) -> None:
 
 def copy_asset(out_dir: Path, name: str) -> str:
     relative = f"assets/{name}"
-    _write(out_dir, relative, (ASSETS_DIR / name).read_text(encoding="utf-8"))
+    write_file(out_dir, relative, (ASSETS_DIR / name).read_text(encoding="utf-8"))
     return relative
 
 
@@ -212,7 +212,7 @@ def render_site(model: PublishModel, index_texts: dict[str, str], out_dir: Path)
     for concept_id in model.public_ids():
         concept = model.concepts[concept_id]
         page = concept_page_path(concept_id)
-        _write(out_dir, page, page_shell(title=concept.title, site_title=title, page_path=page, body_html=concept_body(concept, model)))
+        write_file(out_dir, page, page_shell(title=concept.title, site_title=title, page_path=page, body_html=concept_body(concept, model)))
         written.append(page)
 
     for directory in sorted(model.public_dirs()):
@@ -224,7 +224,7 @@ def render_site(model: PublishModel, index_texts: dict[str, str], out_dir: Path)
             text = generated_listing(directory, model, name or title)
         page_title = first_heading(text) or name or title
         body = render_markdown(text, make_resolver(model, directory, page))
-        _write(out_dir, page, page_shell(title=page_title, site_title=title, page_path=page, body_html=f'<div class="index">{body}</div>'))
+        write_file(out_dir, page, page_shell(title=page_title, site_title=title, page_path=page, body_html=f'<div class="index">{body}</div>'))
         written.append(page)
 
     written.append(copy_asset(out_dir, "style.css"))

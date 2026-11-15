@@ -2,7 +2,7 @@
   "version": "1",
   "issueId": "OKF-11",
   "created": "2026-11-15T19:58:40.672Z",
-  "updated": "2026-11-15T19:58:40.672Z",
+  "updated": "2026-11-15T19:59:23.083Z",
   "gitState": {},
   "decisions": [],
   "hazards": [],
@@ -10,9 +10,22 @@
   "sessionHistory": [],
   "items": {
     "pytest-harness": {
-      "status": "in_progress",
+      "status": "completed",
       "claimedBy": "agent-okf-11",
-      "claimedAt": "2026-11-15T19:58:40.672Z"
+      "claimedAt": "2026-11-15T19:58:40.672Z",
+      "doneAt": "2026-11-15T19:59:23.083Z"
+    },
+    "pytest-harness.ac1": {
+      "status": "completed",
+      "doneAt": "2026-11-15T19:59:23.083Z"
+    },
+    "pytest-harness.ac2": {
+      "status": "completed",
+      "doneAt": "2026-11-15T19:59:23.083Z"
+    },
+    "pytest-harness.ac3": {
+      "status": "completed",
+      "doneAt": "2026-11-15T19:59:23.083Z"
     }
   }
 }

@@ -440,3 +440,58 @@ def _render_inline(text: str, context: _Context) -> str:
 
 def _unescape_backslashes(text: str) -> str:
     return re.sub(r"\\([!-/:-@\[-`{-~])", r"\1", text)
+
+
+@dataclass(frozen=True)
+class LinkSpan:
+    start: int  # index of "[" (or "!" for an image)
+    end: int  # index after the closing ")"
+    is_image: bool
+    label: str  # raw text between the brackets
+    target: str  # raw destination, as the renderer's resolver receives it
+
+
+def find_links(text: str) -> list[LinkSpan]:
+    """Return inline links and images exactly as ``render_markdown`` parses them, in order."""
+    spans: list[LinkSpan] = []
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char == "\\":
+            index += 2
+            continue
+        if char != "[":
+            index += 1
+            continue
+        is_image = index > 0 and text[index - 1] == "!" and (index < 2 or text[index - 2] != "\\")
+        close = _find_closing_bracket(text, index)
+        if close != -1 and close + 1 < len(text) and text[close + 1] == "(":
+            parsed = _parse_destination(text, close + 1)
+            if parsed is not None:
+                target, after = parsed
+                start = index - 1 if is_image else index
+                spans.append(LinkSpan(start, after, is_image, text[index + 1 : close], target))
+                index = after
+                continue
+        index += 1
+    return spans
+
+
+def strip_links(text: str) -> str:
+    """Replace each link and image with its label text, dropping every destination."""
+    out: list[str] = []
+    position = 0
+    for span in find_links(text):
+        out.append(text[position : span.start])
+        out.append(span.label if span.is_image else strip_links(span.label))
+        position = span.end
+    out.append(text[position:])
+    return "".join(out)
+
+
+def visible_text(line: str) -> str:
+    """Approximate what a reader sees for one line: links as text, escapes and emphasis markers removed."""
+    text = strip_links(line)
+    text = re.sub(r"\\([!-/:-@\[-`{-~])", r"\1", text)
+    text = text.replace("`", "").replace("*", "")
+    return re.sub(r"(?<![A-Za-z0-9])_+|_+(?![A-Za-z0-9])", "", text)

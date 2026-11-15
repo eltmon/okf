@@ -7,8 +7,7 @@ from pathlib import Path
 import re
 from urllib.parse import quote
 
-from okf_common import LINK_PATTERN
-from publish_markdown import LinkResolver, escape, render_markdown, safe_href
+from publish_markdown import LinkResolver, escape, find_links, render_markdown, safe_href
 from publish_model import PublishConcept, PublishModel, classify_link
 
 ASSETS_DIR = Path(__file__).resolve().parent / "publish_assets"
@@ -56,19 +55,63 @@ def make_resolver(model: PublishModel, source_dir: str, page_path: str) -> LinkR
     return resolve
 
 
+def _first_link_target(line: str) -> str | None:
+    links = [span for span in find_links(line) if not span.is_image]
+    return links[0].target if links else None
+
+
+def _links_to_published(target: str | None, directory: str, model: PublishModel) -> bool:
+    if target is None:
+        return False
+    link = classify_link(directory, target)
+    if link.kind == "concept":
+        return model.is_public(link.value)
+    if link.kind == "directory":
+        return link.value in model.public_dirs()
+    return False
+
+
+def _links_to_unpublished(target: str | None, directory: str, model: PublishModel) -> bool:
+    if target is None:
+        return False
+    link = classify_link(directory, target)
+    if link.kind == "concept":
+        return not model.is_public(link.value)
+    if link.kind == "directory":
+        return link.value not in model.public_dirs()
+    return False
+
+
 def kept_index_lines(text: str, directory: str, model: PublishModel) -> list[tuple[int, str]]:
-    """Return ``(1-based line, line)`` pairs that survive index filtering."""
-    public_dirs = model.public_dirs()
+    """Return ``(1-based line, line)`` pairs that survive index filtering.
+
+    Inside the generated ``OKF:INDEX`` block, a line survives only when it is a listing line whose
+    first link resolves to a public concept or a published directory; everything else there
+    (private entries, continuation lines of multi-line descriptions, lines whose link does not
+    parse) is dropped, so the block fails closed. Outside the block, hand-written listing lines
+    whose first link points at an unpublished target are dropped and all other lines are kept.
+    """
     kept: list[tuple[int, str]] = []
+    in_block = False
     for number, line in enumerate(text.split("\n"), start=1):
-        if LISTING_LINE.match(line):
-            link = LINK_PATTERN.search(line)
-            if link:
-                target = classify_link(directory, link.group(1))
-                if target.kind == "concept" and not model.is_public(target.value):
-                    continue
-                if target.kind == "directory" and target.value not in public_dirs:
-                    continue
+        stripped = line.strip()
+        if stripped == INDEX_MARKERS[0]:
+            in_block = True
+            kept.append((number, line))
+            continue
+        if stripped == INDEX_MARKERS[1]:
+            in_block = False
+            kept.append((number, line))
+            continue
+        is_listing = LISTING_LINE.match(line) is not None
+        if in_block:
+            if not stripped:
+                kept.append((number, line))
+            elif is_listing and _links_to_published(_first_link_target(line), directory, model):
+                kept.append((number, line))
+            continue
+        if is_listing and _links_to_unpublished(_first_link_target(line), directory, model):
+            continue
         kept.append((number, line))
     return kept
 

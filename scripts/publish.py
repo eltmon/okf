@@ -10,6 +10,7 @@ import shutil
 import sys
 
 from okf_common import markdown_links
+from publish_markdown import visible_text
 from publish_model import Finding, PublishConcept, PublishModel, Source, build_model
 from publish_redact import PROFILE_FILENAME, Profile, load_profile, redact, scan
 from publish_render import filter_index_markdown, kept_index_lines, render_site, site_title
@@ -127,6 +128,14 @@ def _field_findings(location: str, field: str, text: str, profile: Profile) -> l
     ]
 
 
+def _visible_hits(lines: list[str], profile: Profile) -> list[tuple[str, int]]:
+    """Scan each line as a reader sees it, so Markdown escapes, emphasis or link syntax cannot split a match."""
+    hits: list[tuple[str, int]] = []
+    for number, line in enumerate(lines, start=1):
+        hits.extend((rule_id, number) for rule_id, _line in scan(visible_text(line), profile))
+    return hits
+
+
 def check_findings(model: PublishModel, profile: Profile) -> list[Finding]:
     """Scan the published text of public concepts and published index pages (``--check``)."""
     findings: set[Finding] = set()
@@ -145,7 +154,7 @@ def check_findings(model: PublishModel, profile: Profile) -> list[Finding]:
             )
         for field, text in fields:
             findings.update(_field_findings(concept.path, field, text, profile))
-        for rule_id, line in scan(concept.body, profile):
+        for rule_id, line in scan(concept.body, profile) + _visible_hits(concept.body.split("\n"), profile):
             findings.add(
                 Finding(
                     "P_REDACTION",
@@ -162,7 +171,8 @@ def check_findings(model: PublishModel, profile: Profile) -> list[Finding]:
         filtered = "\n".join(line for _number, line in kept)
         index_path = f"{directory}/index.md" if directory else "index.md"
         offset = model.index_offsets.get(directory, 0)
-        for rule_id, line in scan(filtered, profile):
+        hits = scan(filtered, profile) + _visible_hits([text_line for _number, text_line in kept], profile)
+        for rule_id, line in hits:
             file_line = kept[line - 1][0] + offset
             findings.add(
                 Finding("P_REDACTION", f"{index_path}:{file_line}", f"rule {rule_id} matches published text (field index)")

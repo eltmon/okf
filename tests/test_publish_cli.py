@@ -288,3 +288,89 @@ def test_check_and_out_exclusive(scripts_dir, bundle_copy, tmp_path):
     assert result.returncode == 2
     assert "not allowed with argument" in result.stderr
     assert not (tmp_path / "site").exists()
+
+
+def all_output_text(out: Path) -> str:
+    return "\n".join(path.read_text(encoding="utf-8") for path in sorted(out.rglob("*")) if path.is_file())
+
+
+LEAKY_PRIVATE_CONCEPTS = {
+    "rules/secret-plan.md": '---\ntitle: "Layoffs [draft]"\ndescription: ZZ-LEAK-BRACKET-DESC\nx_visibility: private\n---\n\nBody.\n',
+    "rules/unbal.md": '---\ntitle: "a] ZZ-LEAK-UNBAL"\ndescription: ZZ-LEAK-UNBAL-DESC\nx_visibility: private\n---\n\nBody.\n',
+    "rules/my file.md": "---\ntitle: ZZ-LEAK-SPACE-TITLE\ndescription: ZZ-LEAK-SPACE-DESC\nx_visibility: private\n---\n\nBody.\n",
+    "rules/hr.md": "---\ntitle: ZZ-LEAK-HR\ndescription: |\n  First line ZZ-LEAK-FIRST\n  ZZ-LEAK-SECOND-LINE about Bob\nx_visibility: private\n---\n\nBody.\n",
+}
+LEAK_NEEDLES = ("ZZ-LEAK", "Layoffs", "secret-plan", "unbal.md", "my file", "my%20file", "about Bob")
+
+
+def test_reindexed_private_entries_never_reach_the_site(scripts_dir, bundle_copy, tmp_path):
+    for relative, text in LEAKY_PRIVATE_CONCEPTS.items():
+        (bundle_copy / relative).write_text(text, encoding="utf-8")
+    (bundle_copy / "rules" / "bracketed.md").write_text(
+        '---\ntitle: "Public [v2]"\ndescription: Shown rule.\n---\n\nBody.\n', encoding="utf-8"
+    )
+    # reindex.py walks dot-directories and fails on the fixture's frontmatter-less .github/notes.md.
+    shutil.rmtree(bundle_copy / ".github")
+    reindex = subprocess.run(
+        [sys.executable, str(scripts_dir / "reindex.py"), "--bundle", str(bundle_copy)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert reindex.returncode == 0, reindex.stdout + reindex.stderr
+    rules_index = (bundle_copy / "rules" / "index.md").read_text(encoding="utf-8")
+    assert "* [Layoffs [draft]](secret-plan.md) - ZZ-LEAK-BRACKET-DESC" in rules_index
+    assert "ZZ-LEAK-SECOND-LINE about Bob" in rules_index
+    assert "(my file.md)" in rules_index
+
+    check = run_publish(scripts_dir, "--bundle", str(bundle_copy), "--check")
+    assert check.returncode == 0, check.stdout
+    out = tmp_path / "site"
+    result = run_publish(scripts_dir, "--bundle", str(bundle_copy), "--out", str(out))
+    assert result.returncode == 0, result.stdout
+
+    published = all_output_text(out)
+    for needle in LEAK_NEEDLES:
+        assert needle not in published, needle
+    page = (out / "rules" / "index.html").read_text(encoding="utf-8")
+    assert '<a href="bracketed.html">Public [v2]</a> - Shown rule.' in page
+    assert '<a href="no-spoilers.html">No spoilers</a>' in page
+    assert "ZZ-PRIVATE" not in published
+
+
+def test_hand_written_lines_outside_markers_keep_prose(scripts_dir, bundle_copy, tmp_path):
+    index = bundle_copy / "index.md"
+    edit(index, "<!-- OKF:INDEX:BEGIN -->", "* [Old notes [v1]](/ops/incident-42.md) - ZZ-LEAK-HAND\n\n<!-- OKF:INDEX:BEGIN -->")
+    out = tmp_path / "site"
+    assert run_publish(scripts_dir, "--bundle", str(bundle_copy), "--out", str(out)).returncode == 0
+    root = (out / "index.html").read_text(encoding="utf-8")
+    assert "ZZ-LEAK-HAND" not in root
+    assert "See the incident." in root
+
+
+def test_search_text_drops_nested_bracket_targets(scripts_dir, bundle_copy, tmp_path):
+    edit(bundle_copy / "rules" / "no-spoilers.md", "Proposed in chat.[^s1]", "Proposed in chat.[^s1] See [notes [v2]](team-notes.md).")
+    out = tmp_path / "site"
+    assert run_publish(scripts_dir, "--bundle", str(bundle_copy), "--out", str(out)).returncode == 0
+    index = (out / "search-index.json").read_text(encoding="utf-8")
+    assert "team-notes" not in index
+    assert "See notes [v2]." in index
+
+
+@pytest.mark.parametrize(
+    ("line", "rule"),
+    [
+        ("Esc: /home\\/alice/obs.json", "home-path-unix"),
+        ("Box 10.0.0\\.12 is up", "ipv4"),
+        ("Thanks **Alice** Example", "private-string-1"),
+        ("Thanks [Alice](https://example.com/a) Example", "private-string-1"),
+    ],
+)
+def test_check_catches_matches_split_by_markup(scripts_dir, bundle_copy, line, rule):
+    concept = bundle_copy / "rules" / "no-spoilers.md"
+    edit(concept, "Proposed in chat.[^s1]\n", f"Proposed in chat.[^s1]\n\n{line}\n")
+    number = file_line(concept, line)
+    result = run_publish(scripts_dir, "--bundle", str(bundle_copy), "--check")
+    assert result.returncode == 2, result.stdout
+    assert f"ERROR P_REDACTION rules/no-spoilers.md:{number}: rule {rule} matches published text (field body)" in result.stdout
+    assert "alice" not in result.stdout.lower()

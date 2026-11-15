@@ -21,6 +21,7 @@ disable_default_rules: []
 #     pattern: '\bstream-box\.lan\b'
 #     replace: '[internal-host]'
 
-# Example private string: matched literally and case-insensitively.
+# Example private string: matched literally and case-insensitively; a line break
+# or any run of whitespace between its words still matches.
 # private_strings:
 #   - Alice Example

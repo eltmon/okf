@@ -7,12 +7,11 @@ import json
 from pathlib import Path
 import re
 
+from publish_markdown import strip_links
 from publish_model import PublishModel
 from publish_render import concept_page_path, copy_asset, page_shell, relative_href, write_file
 
 FENCE_LINE = re.compile(r"^ {0,3}(?:`{3,}|~{3,}).*$", re.MULTILINE)
-IMAGE = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
-LINK = re.compile(r"\[([^\]]+)\]\([^)]*\)")
 FOOTNOTE_MARK = re.compile(r"\[\^[^\]\s]+\]:?")
 WHITESPACE = re.compile(r"\s+")
 SEARCH_BODY = '<h1>Search</h1><p id="okf-status"></p><ol id="okf-results"></ol>'
@@ -21,8 +20,7 @@ SEARCH_BODY = '<h1>Search</h1><p id="okf-status"></p><ol id="okf-results"></ol>'
 def search_text(body: str) -> str:
     """Return plain searchable text: no fence lines, link targets or footnote markers."""
     text = FENCE_LINE.sub("", body)
-    text = IMAGE.sub(r"\1", text)
-    text = LINK.sub(r"\1", text)
+    text = strip_links(text)
     text = FOOTNOTE_MARK.sub("", text)
     return WHITESPACE.sub(" ", text).strip()
 

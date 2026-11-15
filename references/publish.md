@@ -34,6 +34,8 @@ No input resolves to public by accident. When no concept is public, `publish.py`
 
 A private concept appears nowhere on the site. It has no page, its index listing line is dropped, it has no search record and it appears in no "Linked from" list.
 
+Index listings fail closed. Inside the generated `<!-- OKF:INDEX:BEGIN -->` … `<!-- OKF:INDEX:END -->` block of an `index.md`, a line is kept only when it is a listing line (`* ` or `- `) whose first link resolves to a public concept or a published directory. Every other line in the block is dropped: private entries, continuation lines of a multi-line description, and lines whose link cannot be parsed, such as a file name with a space. Outside the block, a hand-written listing line is dropped when its first link points at a private, missing or unpublished target; all other hand-written lines are kept, with links to unpublished targets rendered as text.
+
 ## Links
 
 A link in published Markdown resolves this way:
@@ -140,7 +142,7 @@ Each finding is one line: `ERROR <CODE> <location>: <message>`. The location is 
 | 0 | `--out`: the site was written. `--check`: no rule matches published text. |
 | 2 | Any finding above, or a usage error. With `--out`, nothing is written and the existing `--out` contents stay untouched. |
 
-`--check` scans the source text of public concepts and published index pages. It passes only after the author removes the matching text. It never passes just because `--out` would redact the text.
+`--check` scans the source text of public concepts and published index pages. It also scans each body and index line as a reader sees it, with link syntax, backslash escapes and emphasis markers removed, so `**Alice** Example` or `/home\/alice` still fails the check. It passes only after the author removes the matching text. It never passes just because `--out` would redact the text.
 
 ## What is never published
 

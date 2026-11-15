@@ -69,33 +69,46 @@ class PublishModel:
     index_files: dict[str, str]  # directory -> index.md text with any frontmatter removed
     index_offsets: dict[str, int] = field(default_factory=dict)  # directory -> frontmatter lines stripped
 
+    _public_ids: list[str] | None = field(default=None, init=False, repr=False, compare=False)
+    _public_dirs: frozenset[str] | None = field(default=None, init=False, repr=False, compare=False)
+    _backlinks: dict[str, list[str]] | None = field(default=None, init=False, repr=False, compare=False)
+
+    # The caches assume ``concepts`` is not mutated after the first query; build a new model
+    # (for example with ``dataclasses.replace``) instead, which starts with empty caches.
+
     def public_ids(self) -> list[str]:
-        return sorted(concept_id for concept_id, concept in self.concepts.items() if concept.visibility == "public")
+        if self._public_ids is None:
+            self._public_ids = sorted(
+                concept_id for concept_id, concept in self.concepts.items() if concept.visibility == "public"
+            )
+        return list(self._public_ids)
 
     def is_public(self, concept_id: str) -> bool:
         concept = self.concepts.get(concept_id)
         return concept is not None and concept.visibility == "public"
 
     def public_dirs(self) -> set[str]:
-        dirs = {""}
-        for concept_id in self.public_ids():
-            parts = self.concepts[concept_id].directory.split("/") if self.concepts[concept_id].directory else []
-            for depth in range(1, len(parts) + 1):
-                dirs.add("/".join(parts[:depth]))
-        return dirs
+        if self._public_dirs is None:
+            dirs = {""}
+            for concept_id in self.public_ids():
+                directory = self.concepts[concept_id].directory
+                parts = directory.split("/") if directory else []
+                for depth in range(1, len(parts) + 1):
+                    dirs.add("/".join(parts[:depth]))
+            self._public_dirs = frozenset(dirs)
+        return set(self._public_dirs)
 
     def backlinks(self, concept_id: str) -> list[str]:
-        sources: set[str] = set()
-        for source_id in self.public_ids():
-            if source_id == concept_id:
-                continue
-            source = self.concepts[source_id]
-            for link in source.links:
-                target = classify_link(source.directory, link)
-                if target.kind == "concept" and target.value == concept_id:
-                    sources.add(source_id)
-                    break
-        return sorted(sources)
+        if self._backlinks is None:
+            reverse: dict[str, set[str]] = {}
+            for source_id in self.public_ids():
+                source = self.concepts[source_id]
+                for link in source.links:
+                    target = classify_link(source.directory, link)
+                    if target.kind == "concept" and target.value != source_id:
+                        reverse.setdefault(target.value, set()).add(source_id)
+            self._backlinks = {target: sorted(sources) for target, sources in reverse.items()}
+        return list(self._backlinks.get(concept_id, []))
 
 
 def classify_link(source_dir: str, target: str) -> LinkTarget:

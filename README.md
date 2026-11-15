@@ -128,7 +128,7 @@ rules:
   - id: stream-box-host
     pattern: '\bstream-box\.lan\b'
     replace: '[internal-host]'
-private_strings:                 # literal, case-insensitive
+private_strings:                 # literal, case-insensitive, matches across line breaks
   - Alice Example
 ```
 

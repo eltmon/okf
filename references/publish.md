@@ -77,7 +77,7 @@ private_strings:                 # optional; literal strings, matched case-insen
   - Alice Example
 ```
 
-Rules apply in this order: enabled built-in rules, then `rules`, then `private_strings`. Private string *n* becomes rule `private-string-<n>` with replacement `[redacted]`. A replacement is literal text, so `\1` inserts a backslash and a one. Rules apply to every published string before rendering, including fenced code and link targets. A rule that rewrites a link target can turn that link into plain text.
+Rules apply in this order: enabled built-in rules, then `rules`, then `private_strings`. Private string *n* becomes rule `private-string-<n>` with replacement `[redacted]`. It matches case-insensitively, and any run of whitespace, including a line break, matches the spaces between its words, so a name wrapped across two lines is still caught. A replacement is literal text, so `\1` inserts a backslash and a one. Rules apply to every published string before rendering, including fenced code and link targets. A rule that rewrites a link target can turn that link into plain text.
 
 An invalid profile stops the run with `P_PROFILE_INVALID`. That covers unreadable YAML, a top level that is not a mapping, an unknown key, a wrong `okf_publish_version`, an unknown id in `disable_default_rules`, a rule without `id` or `pattern`, an invalid or duplicate id, a pattern that does not compile, an empty private string and a non-string value.
 

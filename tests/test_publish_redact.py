@@ -44,6 +44,10 @@ def test_private_strings_case_insensitive(tmp_path):
     redacted, counts = redact("Thanks, alice example!", profile)
     assert redacted == "Thanks, [redacted]!"
     assert counts == {"private-string-1": 1}
+    wrapped, wrapped_counts = redact("Thanks, Alice\nExample and ALICE   example.", profile)
+    assert wrapped == "Thanks, [redacted] and [redacted]."
+    assert wrapped_counts == {"private-string-1": 2}
+    assert scan("x\nAlice\nExample\n", profile) == [("private-string-1", 2)]
 
 
 def test_disable_default_rule(tmp_path):
@@ -67,6 +71,7 @@ def test_disable_default_rule(tmp_path):
         ('okf_publish_version: "0.1"\nrules:\n  - id: ipv4\n    pattern: x\n', "rules id ipv4"),
         ('okf_publish_version: "0.1"\nrules:\n  - id: broken\n    pattern: "("\n', "rule broken"),
         ('okf_publish_version: "0.1"\nprivate_strings: [""]\n', "private_strings"),
+        ('okf_publish_version: "0.1"\nprivate_strings: ["  "]\n', "private_strings"),
         ('okf_publish_version: "0.1"\nprivate_strings: [3]\n', "private_strings"),
         ('okf_publish_version: "0.1"\nrules:\n  - id: a\n    pattern: x\n    replace: 5\n', "replace"),
         ("okf_publish_version: [\n", "YAML"),

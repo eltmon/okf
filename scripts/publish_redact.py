@@ -115,6 +115,11 @@ def _parse_rules(value: Any, errors: list[str]) -> list[Rule]:
     return rules
 
 
+def _private_pattern(text: str) -> re.Pattern[str]:
+    """Match ``text`` literally and case-insensitively; any whitespace run, including a line break, matches."""
+    return re.compile(r"\s+".join(re.escape(word) for word in text.split()), re.IGNORECASE)
+
+
 def _parse_profile(data: Any, path: Path) -> tuple[Profile | None, list[str]]:
     errors: list[str] = []
     if not isinstance(data, dict):
@@ -135,11 +140,11 @@ def _parse_profile(data: Any, path: Path) -> tuple[Profile | None, list[str]]:
 
     private_rules: list[Rule] = []
     for position, text in enumerate(_string_list(data.get("private_strings"), "private_strings", errors), start=1):
-        if not text:
+        if not text.strip():
             errors.append(f"private_strings entry {position} must not be empty.")
             continue
         private_rules.append(
-            Rule(f"private-string-{position}", re.compile(re.escape(text), re.IGNORECASE), DEFAULT_REPLACE, "private_strings")
+            Rule(f"private-string-{position}", _private_pattern(text), DEFAULT_REPLACE, "private_strings")
         )
 
     seen = set(DEFAULT_RULE_IDS) | {rule.id for rule in private_rules}
